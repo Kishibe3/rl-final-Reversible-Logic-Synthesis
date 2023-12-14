@@ -1,0 +1,4 @@
+models/*
+__pycache__/
+thought.txt
+synthetic demonstrations n=3.txt
