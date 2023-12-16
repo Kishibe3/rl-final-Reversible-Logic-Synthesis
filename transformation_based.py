@@ -1,78 +1,64 @@
 # gate的表示法:
-# 每個gate均用一個長度是n+1的list表示。list的第一的元素代表要被這個gate施加NOT運算的qbit編號。
-# 接下來的n個元素只會是0或1，代表每個qbit是否要當這個gate的control bit。0代表empty，1代表control。
-# 如果有qbit會被施加NOT運算且也會當control bit，則該qbit實際上不會用於control。
-#    編號 0  1  2  3  4
-# ex. [0, 0, 1, 0, 0, 1] 代表qbit編號1、4作control，對qbit編號0施加NOT運算
+#    編號 43210
+# ex.    '10012' 代表qbit編號1、4作control，對qbit編號0施加NOT運算
 
 def output2gates_basic(n, Y):
     gates = []
+    g = lambda n, c: ''.join('2' if i == n else a for i, a in enumerate(c[::-1]))[::-1]
     for X in range(1 << n):
         if X == Y[X]:
             continue
-        new_gates = []
-        for i in range(n):
-            if X & (1 << i) > 0 and Y[X] & (1 << i) == 0:
-                new_gates.append([i, *map(int, reversed(bin(Y[X])[2:].zfill(n)))])
-        for i in range(n):
-            if X & (1 << i) == 0 and Y[X] & (1 << i) > 0:
-                new_gates.append([i, *map(int, reversed(bin(X)[2:].zfill(n)))])
-        gates = [*new_gates[::-1], *gates]
+        new_gates = [g(i, bin(Y[X])[2:].zfill(n)) for i in range(n) if X & (1 << i) > 0 and Y[X] & (1 << i) == 0] \
+            + [g(i, bin(X)[2:].zfill(n)) for i in range(n) if X & (1 << i) == 0 and Y[X] & (1 << i) > 0]
+        gates += new_gates
         for gate in new_gates:
-            ctrl = int(''.join(map(str, gate[:0:-1])), 2) & (((1 << n) - 1) ^ (1 << gate[0]))
+            ctrl = int(gate.replace('2', '0'), 2)
             for x in range(X, 1 << n):
                 if ctrl & Y[x] == ctrl:  # apply NOT
-                    Y[x] ^= 1 << gate[0]
-    return gates
+                    Y[x] ^= int(gate.replace('1', '0').replace('2', '1'), 2)
+    return gates[::-1]
 
 # ex.
 # > output2gates_basic(3, [1, 6, 5, 3, 4, 0, 7, 2])
-# [[1, 1, 0, 1], [1, 0, 0, 1], [2, 1, 1, 0], [0, 0, 1, 1], [2, 0, 1, 0], [1, 0, 0, 1], [2, 1, 0, 0], [1, 1, 0, 0], [0, 0, 0, 0]]
+# ['121', '120', '211', '112', '210', '120', '201', '021', '002']
 
 def output2gates_bidirectional(n, Y):
     gates_forward, gates_backward = [], []
+    g = lambda n, c: ''.join('2' if i == n else a for i, a in enumerate(c[::-1]))[::-1]
     for X in range(1 << n):
         if X == Y[X]:
             continue
         new_gates = []
         if bin(X ^ Y[X]).count('1') <= bin(Y.index(X) ^ X).count('1'):  # 從後面往前加gate
-            for i in range(n):
-                if X & (1 << i) > 0 and Y[X] & (1 << i) == 0:
-                    new_gates.append([i, *map(int, reversed(bin(Y[X])[2:].zfill(n)))])
-            for i in range(n):
-                if X & (1 << i) == 0 and Y[X] & (1 << i) > 0:
-                    new_gates.append([i, *map(int, reversed(bin(X)[2:].zfill(n)))])
+            new_gates += [g(i, bin(Y[X])[2:].zfill(n)) for i in range(n) if X & (1 << i) > 0 and Y[X] & (1 << i) == 0]
+            new_gates += [g(i, bin(X)[2:].zfill(n)) for i in range(n) if X & (1 << i) == 0 and Y[X] & (1 << i) > 0]
             gates_backward += new_gates
             for gate in new_gates:
-                ctrl = int(''.join(map(str, gate[:0:-1])), 2) & (((1 << n) - 1) ^ (1 << gate[0]))
+                ctrl = int(gate.replace('2', '0'), 2)
                 for x in range(X, 1 << n):
                     if ctrl & Y[x] == ctrl:  # apply NOT
-                        Y[x] ^=  1 << gate[0]
+                        Y[x] ^= int(gate.replace('1', '0').replace('2', '1'), 2)
         else:  # 從前面往後加gate
-            for i in range(n):
-                if Y.index(X) & (1 << i) == 0 and X & (1 << i) > 0:
-                    new_gates.append([i, *map(int, reversed(bin(Y.index(X))[2:].zfill(n)))])
-            for i in range(n):
-                if Y.index(X) & (1 << i) > 0 and X & (1 << i) == 0:
-                    new_gates.append([i, *map(int, reversed(bin(X)[2:].zfill(n)))])
+            new_gates += [g(i, bin(Y.index(X))[2:].zfill(n)) for i in range(n) if Y.index(X) & (1 << i) == 0 and X & (1 << i) > 0]
+            new_gates += [g(i, bin(X)[2:].zfill(n)) for i in range(n) if Y.index(X) & (1 << i) > 0 and X & (1 << i) == 0]
             gates_forward += new_gates
             for gate in new_gates:
-                ctrl = int(''.join(map(str, gate[:0:-1])), 2) & (((1 << n) - 1) ^ (1 << gate[0]))
+                ctrl = int(gate.replace('2', '0'), 2)
                 Y_old = Y.copy()
                 for x in range(X, 1 << n):
                     if ctrl & Y_old.index(x) == ctrl:  # apply NOT
-                        Y[Y_old.index(x) ^ (1 << gate[0])] = x
+                        Y[Y_old.index(x) ^ int(gate.replace('1', '0').replace('2', '1'), 2)] = x
     return gates_forward + gates_backward[::-1]
 
 # ex.
 # > output2gates_bidirectional(3, [1, 6, 5, 3, 4, 0, 7, 2])
-# [[2, 1, 0, 0], [1, 0, 0, 1], [1, 1, 0, 1], [0, 0, 1, 1], [2, 1, 1, 0], [2, 0, 1, 0], [1, 0, 0, 1], [0, 0, 0, 0]]
+# ['201', '120', '121', '112', '211', '210', '120', '002']
 # > output2gates_bidirectional(4, [2, 4, 3, 10, 5, 15, 7, 13, 11, 14, 1, 0, 9, 6, 12, 8])
-# [[0, 0, 1, 0, 0], [1, 1, 0, 0, 0], [3, 0, 1, 0, 0], [1, 1, 0, 0, 1], [3, 1, 1, 0, 0], [0, 0, 1, 1, 1], [0, 0, 0, 1, 1], [0, 0, 1, 0, 1], [1, 1, 0, 0, 1], [0, 0, 1, 0, 1], [0, 0, 0, 0, 1], [3, 1, 1, 1, 0], [2, 1, 1, 0, 1], [3, 0, 1, 1, 0], [2, 0, 1, 0, 1], [1, 1, 0, 1, 0], [0, 0, 1, 1, 0], [1, 0, 0, 1, 0], [0, 0, 0, 1, 0], [1, 0, 0, 0, 0]]
+# ['0012', '0021', '2010', '1021', '2011', '1112', '1102', '1012', '1021', '1012', '1002', '2111', '1211', '2110', '1210', '0121', '0112', '0120', '0102', '0020']
 
 def gates2output(n, gates):
     Y = [*range(1 << n)]
     for gate in gates:
-        ctrl = int(''.join(map(str, gate[:0:-1])), 2) & (((1 << n) - 1) ^ (1 << gate[0]))
-        Y = [y ^ (1 << gate[0]) if ctrl & y == ctrl else y for y in Y]
+        ctrl = int(gate.replace('2', '0'), 2)
+        Y = [y ^ int(gate.replace('1', '0').replace('2', '1'), 2) if ctrl & y == ctrl else y for y in Y]
     return Y

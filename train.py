@@ -22,17 +22,33 @@ my_config = {
     "algorithm": PPO,
     "policy_network": "MlpPolicy",
 
-    "epoch_num": 5000,
+    "epoch_num": 1000,
     "timesteps_per_epoch": 5000,
-    "eval_episode_num": 50,
+    "eval_episode_num": 40,
 }
 
-def make_env():
-    env = gym.make('rls-v0')
-    return env
+def eval(env, model, config):
+    avg_score = 0
+    for i in range(config["eval_episode_num"]):
+        done = False
+        score, cnt = 0, 0
+            
+        env.seed(i)
+        obs = env.reset()
+
+        while not done:
+            action, state = model.predict(obs, deterministic=True)
+            obs, reward, done, _ = env.step(action)
+            score += reward[0]
+            cnt += 1
+        avg_score += score / config["eval_episode_num"]
+        if i % 10 == 0:
+            print(f'Episode: {i+1}, Score: {score}, Gate: {cnt}')
+    return avg_score
 
 def train(env, model, config):
     current_best = -torch.inf
+    best_epoch = 0
 
     for epoch in range(config["epoch_num"]):
 
@@ -49,28 +65,16 @@ def train(env, model, config):
 
         ### Evaluation
         print("Epoch: ", epoch)
-        avg_score = 0
-        for i in range(config["eval_episode_num"]):
-            done = False
-            score, cnt = 0, 0
-            
-            env.seed(i)
-            obs, _ = env.reset()
-
-            while not done:
-                action, state = model.predict(obs, deterministic=True)
-                obs, reward, done, _, _ = env.step(action)
-                score += reward
-                cnt += 1
-            avg_score += score / config["eval_episode_num"]
-            print(f'Episode: {i+1}, Score: {score}, Gate: {cnt}')
-            
+        print(f'Current best score: {current_best} in Epoch {best_epoch}')
+        
+        avg_score = round(eval(env, model, config), 4)
         print(f'the average score is {avg_score}')
 
         ### Save best model
         if current_best < avg_score:
             print("Saving Model")
-            current_best = score
+            current_best = avg_score
+            best_epoch = epoch
             model.save(f"models/best")
 
         print("---------------")
@@ -86,7 +90,7 @@ if __name__ == "__main__":
     #     id=my_config["run_id"]
     # )
 
-    env = DummyVecEnv([make_env])
+    env = DummyVecEnv([lambda: gym.make('rls-v0')])
 
     # Create model from loaded config and train
     # Note: Set verbose to 0 if you don't want info messages
@@ -94,7 +98,7 @@ if __name__ == "__main__":
         my_config["policy_network"], 
         env,
         verbose=0,
-        learning_rate=0.0003,
+        learning_rate=1e-4,
         #tensorboard_log=my_config["run_id"]
     )
     train(env, model, my_config)

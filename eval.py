@@ -15,11 +15,11 @@ def evaluation(env, model, eval_num = 100):
     for seed in range(eval_num):
         done = False
         gate_cnt, sum_reward = 0, 0
-        obs, _ = env.reset(seed = seed)
+        obs = env.reset(seed = seed)
 
         while not done:
             action, _ = model.predict(obs, deterministic = True)
-            obs, reward, done, _, _ = env.step(action)
+            obs, reward, done, _ = env.step(action)
             gate_cnt += 1
             sum_reward += reward
 
