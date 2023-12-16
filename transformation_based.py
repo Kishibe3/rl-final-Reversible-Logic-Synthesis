@@ -28,9 +28,8 @@ def output2gates_bidirectional(n, Y):
     for X in range(1 << n):
         if X == Y[X]:
             continue
-        new_gates = []
         if bin(X ^ Y[X]).count('1') <= bin(Y.index(X) ^ X).count('1'):  # 從後面往前加gate
-            new_gates += [g(i, bin(Y[X])[2:].zfill(n)) for i in range(n) if X & (1 << i) > 0 and Y[X] & (1 << i) == 0]
+            new_gates = [g(i, bin(Y[X])[2:].zfill(n)) for i in range(n) if X & (1 << i) > 0 and Y[X] & (1 << i) == 0]
             new_gates += [g(i, bin(X)[2:].zfill(n)) for i in range(n) if X & (1 << i) == 0 and Y[X] & (1 << i) > 0]
             gates_backward += new_gates
             for gate in new_gates:
@@ -39,7 +38,7 @@ def output2gates_bidirectional(n, Y):
                     if ctrl & Y[x] == ctrl:  # apply NOT
                         Y[x] ^= int(gate.replace('1', '0').replace('2', '1'), 2)
         else:  # 從前面往後加gate
-            new_gates += [g(i, bin(Y.index(X))[2:].zfill(n)) for i in range(n) if Y.index(X) & (1 << i) == 0 and X & (1 << i) > 0]
+            new_gates = [g(i, bin(Y.index(X))[2:].zfill(n)) for i in range(n) if Y.index(X) & (1 << i) == 0 and X & (1 << i) > 0]
             new_gates += [g(i, bin(X)[2:].zfill(n)) for i in range(n) if Y.index(X) & (1 << i) > 0 and X & (1 << i) == 0]
             gates_forward += new_gates
             for gate in new_gates:

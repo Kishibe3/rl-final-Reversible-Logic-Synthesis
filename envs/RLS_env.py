@@ -3,7 +3,6 @@ from gymnasium.utils import seeding
 import numpy as np
 from stable_baselines3.common.env_checker import check_env
 
-from collections import defaultdict
 from queue import Queue
 import random
 
@@ -77,7 +76,7 @@ class RLS(gym.Env):
         update = 0  # 使用update數量以下的gate製造出來的state都會被從d中刪掉
         max_gate_usage = 1
         sample_states = []
-        lr = [1000, 600, 200, 30, 10, 5, 10, 200]  # 學習複雜gate的速度
+        lr = [1000, 400, 200, 32, 16, 5, 10, 200]  # 學習複雜gate的速度
 
         while not q.empty():
             state = q.get()
@@ -95,7 +94,7 @@ class RLS(gym.Env):
                 # 因此前面才能安心地把部分d的內容刪掉
             if q.empty() or d[q.queue[0]] == max_gate_usage:
                 for _ in range(lr[max_gate_usage - 1] * len(sample_states)):  # 在此調整要多快的速度學習更複雜的state
-                    yield random.choice(sample_states), max_gate_usage
+                    yield random.choice(sample_states), max_gate_usage  # TODO: 修正sample_states = []時random.choice()造成的list out of index error
                 max_gate_usage += 1
                 sample_states = []
         self.train_finish = True
