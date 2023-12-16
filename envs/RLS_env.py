@@ -34,24 +34,24 @@ class RLS(gym.Env):
 
     def step(self, action):
         self.step_cnt += 1
-        
-        if self.step_cnt == self.max_step:
-            return self.state, -len(output2gates_bidirectional(self.n, self.state.tolist())), True, False, {}
-        if (self.state == np.arange(1 << self.n)).all():
-            return self.state, self.max_step + self.expected_gate_cnt - self.step_cnt, True, False, {}
-        
+
         action = self.actiondict[action]
         ctrl = int(action.replace('2', '0'), 2)
         self.state = np.array([x ^ int(action.replace('1', '0').replace('2', '1'), 2) if ctrl & x == ctrl else x for x in self.state])
 
+        if self.step_cnt == self.max_step:
+            return self.state, -len(output2gates_bidirectional(self.n, self.state.tolist())), True, False, {'state_complexity': self.state_complexity}
+        if (self.state == np.arange(1 << self.n)).all():
+            return self.state, self.max_step + self.expected_gate_cnt - self.step_cnt, True, False, {'state_complexity': self.state_complexity}
+
         # Return state, reward, done, truncate and info
-        return self.state, self.step_penalty, False, False, {}
+        return self.state, self.step_penalty, False, False, {'state_complexity': self.state_complexity}
     
     def reset(self, seed=None):
         self.seed(seed=seed)
         self.step_cnt, self.max_step = 0, self.n * (1 << self.n)
 
-        self.state = next(self.generator)
+        self.state, self.state_complexity = next(self.generator)
         
         # 用於計算正確合成時的reward
         self.expected_gate_cnt = len(output2gates_bidirectional(self.n, self.state.tolist()))
@@ -63,7 +63,7 @@ class RLS(gym.Env):
 
     def init_state_generator(self):
         """
-        從最簡單的state(即僅需少量gate就能夠造的state)開始學起，之後再學複雜的state
+        從最簡單的state(即僅需少量gate就能夠製造的state)開始學起，之後再學複雜的state
         """
         d = {}
         q = Queue()
@@ -88,7 +88,7 @@ class RLS(gym.Env):
                 # new_state不可能等於用少於(d[state] - 1)個gate製造出來的任何state
                 # 因此前面才能安心地把部分d的內容刪掉
             if q.empty() or d[q.queue[0]] == max_gate_usage:
+                for _ in range(1000 * len(sample_states)):  # 在此調整要多快的速度學習更複雜的state
+                    yield random.choice(sample_states), max_gate_usage
                 max_gate_usage += 1
-                for _ in range(100 * len(sample_states)):  # 在此調整要多快的速度學習更複雜的state
-                    yield random.choice(sample_states)
                 sample_states = []
