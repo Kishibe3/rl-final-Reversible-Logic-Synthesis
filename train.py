@@ -4,7 +4,7 @@ from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3 import A2C, DDPG, DQN, PPO, SAC, TD3
 
 import torch
-import logging, warnings
+import logging, warnings, os
 
 logging.basicConfig(
     filename = 'train.log',
@@ -27,12 +27,12 @@ my_config = {
     "algorithm": PPO,
     "policy_network": "MlpPolicy",
 
-    "epoch_num": 10000,
-    "timesteps_per_epoch": 30,
-    "eval_episode_num": 40,
+    "epoch_num": 2700,
+    "timesteps_per_epoch": 30,  # 要稍微多於n * (2 ** n)
+    "eval_episode_num": 20,
 }
 
-current_state_complexity = 0
+current_state_complexity = 1
 best_score, best_gate_cnt = -torch.inf, torch.inf
 
 def log(msg):
@@ -42,7 +42,7 @@ def log(msg):
 def eval(env, model, config):
     global current_state_complexity, best_score, best_gate_cnt
     avg_score, avg_cnt = 0, 0
-    for i in range(config["eval_episode_num"]):
+    for i in range(config['eval_episode_num']):
         done = False
         score, cnt = 0, 0
             
@@ -54,11 +54,12 @@ def eval(env, model, config):
             obs, reward, done, info = env.step(action)
             score += reward[0]
             cnt += 1
-        avg_score += score / config["eval_episode_num"]
-        avg_cnt += cnt / config["eval_episode_num"]
-        if i % 10 == 0:
-            if current_state_complexity < info[0]["state_complexity"]:
-                current_state_complexity = info[0]["state_complexity"]
+        avg_score += score / config['eval_episode_num']
+        avg_cnt += cnt / config['eval_episode_num']
+        if i % 5 == 4:
+            if current_state_complexity < env.get_attr('state_complexity')[0]:
+                os.rename(f'models/best {current_state_complexity}.zip', f'models/best {current_state_complexity}, score={best_score}, gate={best_gate_cnt}.zip')
+                current_state_complexity = env.get_attr('state_complexity')[0]
                 best_score, best_gate_cnt = -torch.inf, torch.inf
             # ISC = Initial State Complexity, TS = Terminal State
             log(f'Episode: {i+1:2}, ISC: {current_state_complexity:2}, Score: {score:6}, Gate: {cnt:3}, TS: {info[0]["terminal_observation"]}')
@@ -66,14 +67,14 @@ def eval(env, model, config):
 
 def train(env, model, config):
     global best_score, best_gate_cnt
-    best_epoch = 0
+    epoch, best_epoch = 0, 0
 
-    for epoch in range(config["epoch_num"]):
+    while not env.get_attr('train_finish')[0]:
 
         ### Train agent using SB3
         # Uncomment to enable wandb logging
         model.learn(
-            total_timesteps=config["timesteps_per_epoch"],
+            total_timesteps=config['timesteps_per_epoch'],
             reset_num_timesteps=False
         )
 
@@ -87,22 +88,23 @@ def train(env, model, config):
 
         ### Save best model
         if best_score < avg_score:
-            log("Saving Model")
+            log(f'Saving Model for complexity {current_state_complexity}')
             best_score = avg_score
             best_gate_cnt = avg_gate_cnt
             best_epoch = epoch
-            model.save(f"models/best {current_state_complexity}")
+            model.save(f'models/best {current_state_complexity}')
 
-        log("---------------")
+        log('---------------')
+        epoch += 1
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     env = DummyVecEnv([lambda: gym.make('rls-v0')])
 
     # Create model from loaded config and train
     # Note: Set verbose to 0 if you don't want info messages
-    model = my_config["algorithm"](
-        my_config["policy_network"], 
+    model = my_config['algorithm'](
+        my_config['policy_network'], 
         env,
         verbose = 0,
         learning_rate = 1e-3
