@@ -70,6 +70,8 @@ def train(env, model, config):
     epoch, best_epoch = 0, 0
 
     while not env.get_attr('train_finish')[0]:
+        log(f'Epoch: {epoch}')
+        log(f'Current best score: {best_score}, best gate count: {best_gate_cnt} in Epoch {best_epoch}')
 
         ### Train agent using SB3
         # Uncomment to enable wandb logging
@@ -79,9 +81,6 @@ def train(env, model, config):
         )
 
         ### Evaluation
-        log(f'Epoch: {epoch}')
-        log(f'Current best score: {best_score}, best gate count: {best_gate_cnt} in Epoch {best_epoch}')
-        
         avg_score, avg_gate_cnt = eval(env, model, config)
         avg_score, avg_gate_cnt = round(avg_score, 4), round(avg_gate_cnt, 4)
         log(f'Avg_score: {avg_score}, Avg_gate_count: {avg_gate_cnt}')
@@ -96,7 +95,7 @@ def train(env, model, config):
 
         log('---------------')
         epoch += 1
-
+    os.rename(f'models/best {current_state_complexity}.zip', f'models/best {current_state_complexity}, score={best_score}, gate={best_gate_cnt}.zip')
 
 if __name__ == '__main__':
     env = DummyVecEnv([lambda: gym.make('rls-v0')])

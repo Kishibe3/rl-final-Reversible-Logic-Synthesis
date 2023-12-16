@@ -12,8 +12,6 @@ register(
     entry_point='envs:RLS_eval'
 )
 
-n = 3
-
 def eval(env, model, eval_num = 100):
     rl_gate_cnts, scores = [], []
     basic_gate_cnts, bidirectional_gate_cnts = [], []
@@ -31,11 +29,11 @@ def eval(env, model, eval_num = 100):
             actions.append(env.unwrapped.actiondict[action])
             obs, reward, done, _, _ = env.step(action)
             score += reward
-        if gates2output(n, actions[::-1]) == init_state.tolist():  # give correct answer
+        if gates2output(env.unwrapped.n, actions[::-1]) == init_state.tolist():  # give correct answer
             scores.append(score)
             rl_gate_cnts.append(len(actions))
-            basic_gate_cnts.append(len(output2gates_basic(n, init_state.tolist())))
-            bidirectional_gate_cnts.append(len(output2gates_bidirectional(n, init_state.tolist())))
+            basic_gate_cnts.append(len(output2gates_basic(env.unwrapped.n, init_state.tolist())))
+            bidirectional_gate_cnts.append(len(output2gates_bidirectional(env.unwrapped.n, init_state.tolist())))
     
     print(f'Total Trials: {eval_num}')
     print(f'Correctness: {100 * len(scores) / eval_num}%')

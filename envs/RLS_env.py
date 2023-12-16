@@ -95,6 +95,11 @@ class RLS(gym.Env):
             if q.empty() or d[q.queue[0]] == max_gate_usage:
                 for _ in range(lr[max_gate_usage - 1] * len(sample_states)):  # 在此調整要多快的速度學習更複雜的state
                     yield random.choice(sample_states), max_gate_usage  # TODO: 修正sample_states = []時random.choice()造成的list out of index error
-                max_gate_usage += 1
+                if sample_states != []:
+                    max_gate_usage += 1
                 sample_states = []
+        
         self.train_finish = True
+        rtn = np.arange(1 << self.n)
+        np.random.shuffle(rtn)
+        yield rtn, max_gate_usage
