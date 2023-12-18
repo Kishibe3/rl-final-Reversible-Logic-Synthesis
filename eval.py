@@ -53,8 +53,11 @@ def eval(env, model, eval_num = 100):
     #plt.show()
 
 if __name__ == '__main__':
-    model_path = 'models/lr = 1000, 600, 200, 30, 10, 5, 10, 200/best 8, score=18.05, gate=9.0'
+    models = [
+        'models/2/best 7, score=16.84, gate=9.12, match=200',  # 99.2% 打敗basic
+        'models/4/best 8, score=18.5, gate=8.7, match=160'  # 97.3% 打敗bidirectional
+    ]
     env = gym.make('rls-eval')
 
-    model = PPO.load(model_path)
+    model = PPO.load(models[0])
     eval(env, model, 10000)
